@@ -1,225 +1,287 @@
-# Script de despliegue en producción para AGRO APG
+# 🚀 Script de Despliegue en Producción - AGRO APG (PowerShell)
+# Uso: .\deploy_production.ps1
+
 param(
-    [string]$Domain = "",
-    [string]$SecretKey = "",
-    [string]$DbPassword = ""
+    [string]$EnvFile = ".env"
 )
 
-Write-Host "🚀 Despliegue en Producción - AGRO APG" -ForegroundColor Green
-Write-Host "=======================================" -ForegroundColor Green
+# Configurar para detener en caso de error
+$ErrorActionPreference = "Stop"
 
-# Verificar que Docker esté corriendo
-try {
-    docker info | Out-Null
-    Write-Host "✅ Docker está corriendo" -ForegroundColor Green
-} catch {
-    Write-Host "❌ Docker no está corriendo. Por favor inicia Docker Desktop." -ForegroundColor Red
-    exit 1
+Write-Host "🚀 Iniciando despliegue en producción de AGRO APG..." -ForegroundColor Cyan
+Write-Host "==================================================" -ForegroundColor Cyan
+
+# Función para imprimir mensajes
+function Write-Status {
+    param([string]$Message)
+    Write-Host "[INFO] $Message" -ForegroundColor Blue
 }
 
-# Verificar que Docker Compose esté disponible
-try {
-    docker-compose --version | Out-Null
-    Write-Host "✅ Docker Compose está disponible" -ForegroundColor Green
-} catch {
-    Write-Host "❌ Docker Compose no está disponible." -ForegroundColor Red
-    exit 1
+function Write-Success {
+    param([string]$Message)
+    Write-Host "[SUCCESS] $Message" -ForegroundColor Green
 }
 
-# Crear archivo .env si no existe
-if (-not (Test-Path ".env")) {
-    Write-Host "📝 Creando archivo .env..." -ForegroundColor Yellow
+function Write-Warning {
+    param([string]$Message)
+    Write-Host "[WARNING] $Message" -ForegroundColor Yellow
+}
+
+function Write-Error {
+    param([string]$Message)
+    Write-Host "[ERROR] $Message" -ForegroundColor Red
+}
+
+# Verificar si Docker está instalado
+function Test-Docker {
+    Write-Status "Verificando Docker..."
     
-    # Generar clave secreta si no se proporciona
-    if (-not $SecretKey) {
-        $SecretKey = -join ((33..126) | Get-Random -Count 50 | ForEach-Object {[char]$_})
+    try {
+        $null = docker --version
+        $null = docker-compose --version
+        Write-Success "Docker y Docker Compose están instalados"
     }
-    
-    # Generar contraseña de base de datos si no se proporciona
-    if (-not $DbPassword) {
-        $DbPassword = -join ((33..126) | Get-Random -Count 32 | ForEach-Object {[char]$_})
+    catch {
+        Write-Error "Docker no está instalado o no está en el PATH. Por favor instala Docker Desktop."
+        exit 1
     }
-    
-    # Configurar URL de API
-    $ApiUrl = if ($Domain) { "https://$Domain/api" } else { "http://localhost:8000/api" }
-    $AllowedHosts = if ($Domain) { "$Domain,www.$Domain,localhost,127.0.0.1" } else { "localhost,127.0.0.1" }
-    $CorsOrigins = if ($Domain) { "https://$Domain,https://www.$Domain" } else { "http://localhost:3000" }
-    
-    $envContent = @"
+}
+
+# Verificar archivo .env
+function Test-EnvFile {
+    if (Test-Path $EnvFile) {
+        Write-Success "Archivo $EnvFile encontrado"
+        Get-Content $EnvFile | ForEach-Object {
+            if ($_ -match '^([^#][^=]+)=(.*)$') {
+                $name = $matches[1].Trim()
+                $value = $matches[2].Trim()
+                Set-Variable -Name $name -Value $value -Scope Global
+            }
+        }
+    }
+    else {
+        Write-Warning "Archivo $EnvFile no encontrado. Creando archivo .env por defecto..."
+        
+        $envContent = @"
 # Configuración de Django
 DEBUG=False
-SECRET_KEY=$SecretKey
-DJANGO_SETTINGS_MODULE=agro_backend.settings_production
+SECRET_KEY=production-secret-key-change-this-immediately-2024
+ALLOWED_HOSTS=localhost,127.0.0.1,0.0.0.0
 
-# Configuración de base de datos
-POSTGRES_DB=agro_db
-POSTGRES_USER=agro_user
-POSTGRES_PASSWORD=$DbPassword
+# Configuración de CORS
+CORS_ALLOWED_ORIGINS=http://localhost:3000,http://127.0.0.1:3000
+
+# Configuración de PostgreSQL
+POSTGRES_DB=agro_db_prod
+POSTGRES_USER=agro_user_prod
+POSTGRES_PASSWORD=agro_password_prod_2024
 POSTGRES_HOST=db
 POSTGRES_PORT=5432
 
-# Configuración de hosts
-ALLOWED_HOSTS=$AllowedHosts
-CORS_ALLOWED_ORIGINS=$CorsOrigins
-
-# Configuración de frontend
-REACT_APP_API_URL=$ApiUrl
+# Configuración del Frontend
+REACT_APP_API_URL=http://localhost:8000/api
 NODE_ENV=production
 "@
-    
-    $envContent | Out-File -FilePath ".env" -Encoding UTF8
-    Write-Host "✅ Archivo .env creado" -ForegroundColor Green
-} else {
-    Write-Host "ℹ️ Archivo .env ya existe" -ForegroundColor Cyan
+        
+        $envContent | Out-File -FilePath $EnvFile -Encoding UTF8
+        Write-Warning "Archivo $EnvFile creado con valores por defecto. ¡IMPORTANTE: Cambia las contraseñas!"
+        
+        # Cargar variables
+        Get-Content $EnvFile | ForEach-Object {
+            if ($_ -match '^([^#][^=]+)=(.*)$') {
+                $name = $matches[1].Trim()
+                $value = $matches[2].Trim()
+                Set-Variable -Name $name -Value $value -Scope Global
+            }
+        }
+    }
 }
 
 # Detener contenedores existentes
-Write-Host "🛑 Deteniendo contenedores existentes..." -ForegroundColor Yellow
-docker-compose down
+function Stop-Containers {
+    Write-Status "Deteniendo contenedores existentes..."
+    docker-compose down --remove-orphans
+    Write-Success "Contenedores detenidos"
+}
+
+# Limpiar recursos Docker
+function Clear-DockerResources {
+    Write-Status "Limpiando recursos Docker no utilizados..."
+    docker system prune -f
+    Write-Success "Limpieza completada"
+}
 
 # Construir y levantar contenedores
-Write-Host "🔨 Construyendo y levantando contenedores..." -ForegroundColor Yellow
-docker-compose up --build -d
-
-# Esperar a que la base de datos esté lista
-Write-Host "⏳ Esperando a que la base de datos esté lista..." -ForegroundColor Yellow
-Start-Sleep -Seconds 15
-
-# Verificar estado de los contenedores
-Write-Host "🔍 Verificando estado de los contenedores..." -ForegroundColor Yellow
-$containers = docker-compose ps --format json | ConvertFrom-Json
-$allHealthy = $true
-
-foreach ($container in $containers) {
-    $status = $container.State
-    $name = $container.Name
-    if ($status -eq "running") {
-        Write-Host "   ✅ $name - $status" -ForegroundColor Green
-    } else {
-        Write-Host "   ❌ $name - $status" -ForegroundColor Red
-        $allHealthy = $false
-    }
+function Start-Containers {
+    Write-Status "Construyendo y levantando contenedores..."
+    docker-compose up --build -d
+    
+    # Esperar a que los contenedores estén listos
+    Write-Status "Esperando a que los contenedores estén listos..."
+    Start-Sleep -Seconds 30
+    
+    Write-Success "Contenedores construidos y levantados"
 }
 
-if (-not $allHealthy) {
-    Write-Host "❌ Algunos contenedores no están funcionando correctamente" -ForegroundColor Red
-    Write-Host "Revisando logs..." -ForegroundColor Yellow
-    docker-compose logs --tail=20
-    exit 1
-}
-
-# Verificar conexión a la base de datos
-Write-Host "🔍 Verificando conexión a la base de datos..." -ForegroundColor Yellow
-try {
-    $dbCheck = docker-compose exec -T db pg_isready -U agro_user -d agro_db
-    if ($LASTEXITCODE -eq 0) {
-        Write-Host "   ✅ Base de datos conectada" -ForegroundColor Green
-    } else {
-        Write-Host "   ❌ Error de conexión a la base de datos" -ForegroundColor Red
-        Write-Host "   Esperando más tiempo..." -ForegroundColor Yellow
-        Start-Sleep -Seconds 10
+# Verificar estado de contenedores
+function Test-Containers {
+    Write-Status "Verificando estado de contenedores..."
+    
+    $containers = docker-compose ps
+    if ($containers -match "Up") {
+        Write-Success "Todos los contenedores están ejecutándose"
+        docker-compose ps
     }
-} catch {
-    Write-Host "   ⚠️ No se pudo verificar la base de datos, continuando..." -ForegroundColor Yellow
+    else {
+        Write-Error "Algunos contenedores no están ejecutándose correctamente"
+        docker-compose ps
+        docker-compose logs
+        exit 1
+    }
 }
 
 # Ejecutar migraciones
-Write-Host "📦 Ejecutando migraciones..." -ForegroundColor Yellow
-try {
-    docker-compose exec -T backend python manage.py migrate
-    Write-Host "   ✅ Migraciones aplicadas" -ForegroundColor Green
-} catch {
-    Write-Host "   ❌ Error al aplicar migraciones" -ForegroundColor Red
-    docker-compose logs backend --tail=10
-    exit 1
-}
-
-# Ejecutar diagnóstico
-Write-Host "🔍 Ejecutando diagnóstico de configuración..." -ForegroundColor Yellow
-try {
-    docker-compose exec -T backend python /app/diagnose_production.py
-    Write-Host "   ✅ Diagnóstico completado" -ForegroundColor Green
-} catch {
-    Write-Host "   ⚠️ Diagnóstico falló, pero continuando..." -ForegroundColor Yellow
+function Invoke-Migrations {
+    Write-Status "Ejecutando migraciones de Django..."
+    
+    # Esperar a que la base de datos esté lista
+    Write-Status "Esperando a que PostgreSQL esté listo..."
+    do {
+        Start-Sleep -Seconds 2
+        $result = docker-compose exec -T db pg_isready -U $POSTGRES_USER -d $POSTGRES_DB 2>$null
+    } while ($LASTEXITCODE -ne 0)
+    
+    docker-compose exec -T backend python manage.py migrate --noinput
+    Write-Success "Migraciones ejecutadas"
 }
 
 # Recolectar archivos estáticos
-Write-Host "📁 Recolectando archivos estáticos..." -ForegroundColor Yellow
-try {
-    docker-compose exec -T backend python manage.py collectstatic --noinput
-    Write-Host "   ✅ Archivos estáticos recolectados" -ForegroundColor Green
-} catch {
-    Write-Host "   ❌ Error al recolectar archivos estáticos" -ForegroundColor Red
-    docker-compose logs backend --tail=10
-    exit 1
+function Invoke-CollectStatic {
+    Write-Status "Recolectando archivos estáticos..."
+    docker-compose exec -T backend python manage.py collectstatic --noinput --clear
+    Write-Success "Archivos estáticos recolectados"
 }
 
-# Crear superusuario
-Write-Host "👤 Creando superusuario..." -ForegroundColor Yellow
-try {
-    $superuserScript = @"
-from django.contrib.auth import get_user_model
-User = get_user_model()
-if not User.objects.filter(is_superuser=True).exists():
-    User.objects.create_superuser('admin', 'admin@agroapg.com', 'admin123')
-    print('Superusuario creado: admin@agroapg.com / admin123')
-else:
+# Crear superusuario si no existe
+function New-SuperUser {
+    Write-Status "Verificando superusuario..."
+    
+    # Verificar si ya existe un superusuario
+    $checkScript = @"
+from apps.authentication.models import User
+if User.objects.filter(is_superuser=True).exists():
     print('Superusuario ya existe')
+    exit(0)
+else:
+    print('No hay superusuario')
+    exit(1)
 "@
     
-    $result = docker-compose exec -T backend python manage.py shell -c $superuserScript
-    Write-Host "   ✅ $result" -ForegroundColor Green
-} catch {
-    Write-Host "   ❌ Error al crear superusuario" -ForegroundColor Red
-    docker-compose logs backend --tail=10
+    try {
+        docker-compose exec -T backend python manage.py shell -c $checkScript 2>$null
+        Write-Success "Superusuario ya existe"
+    }
+    catch {
+        Write-Warning "No hay superusuario. Creando uno por defecto..."
+        
+        $createScript = @"
+from apps.authentication.models import User
+User.objects.create_superuser(
+    email='admin@agroapg.com',
+    password='admin123',
+    first_name='Admin',
+    last_name='AGRO APG'
+)
+print('Superusuario creado: admin@agroapg.com / admin123')
+"@
+        
+        docker-compose exec -T backend python manage.py shell -c $createScript
+        Write-Warning "¡IMPORTANTE: Cambia la contraseña del superusuario inmediatamente!"
+    }
 }
 
-# Verificar conectividad
-Write-Host "🌐 Verificando conectividad..." -ForegroundColor Yellow
-
-# Probar backend
-try {
-    $backendResponse = Invoke-WebRequest -Uri "http://localhost:8000/admin/" -Method GET -TimeoutSec 10
-    Write-Host "   ✅ Backend accesible (Status: $($backendResponse.StatusCode))" -ForegroundColor Green
-} catch {
-    Write-Host "   ❌ Backend no accesible: $($_.Exception.Message)" -ForegroundColor Red
+# Verificar configuración de producción
+function Test-ProductionConfig {
+    Write-Status "Verificando configuración de producción..."
+    docker-compose exec -T backend python manage.py check --deploy
+    Write-Success "Configuración de producción verificada"
 }
 
-# Probar frontend
-try {
-    $frontendResponse = Invoke-WebRequest -Uri "http://localhost:3000/" -Method GET -TimeoutSec 10
-    Write-Host "   ✅ Frontend accesible (Status: $($frontendResponse.StatusCode))" -ForegroundColor Green
-} catch {
-    Write-Host "   ❌ Frontend no accesible: $($_.Exception.Message)" -ForegroundColor Red
+# Mostrar información de acceso
+function Show-AccessInfo {
+    Write-Host ""
+    Write-Host "🎉 ¡Despliegue completado exitosamente!" -ForegroundColor Green
+    Write-Host "======================================" -ForegroundColor Green
+    Write-Host ""
+    Write-Host "📱 Frontend: http://localhost:3000" -ForegroundColor White
+    Write-Host "🔧 Backend API: http://localhost:8000/api" -ForegroundColor White
+    Write-Host "📊 Admin Django: http://localhost:8000/admin" -ForegroundColor White
+    Write-Host ""
+    Write-Host "👤 Credenciales por defecto:" -ForegroundColor Yellow
+    Write-Host "   Email: admin@agroapg.com" -ForegroundColor White
+    Write-Host "   Password: admin123" -ForegroundColor White
+    Write-Host ""
+    Write-Host "🗄️ Base de datos PostgreSQL:" -ForegroundColor Yellow
+    Write-Host "   Host: localhost" -ForegroundColor White
+    Write-Host "   Puerto: 5432" -ForegroundColor White
+    Write-Host "   Base de datos: $POSTGRES_DB" -ForegroundColor White
+    Write-Host "   Usuario: $POSTGRES_USER" -ForegroundColor White
+    Write-Host ""
+    Write-Host "📋 Comandos útiles:" -ForegroundColor Yellow
+    Write-Host "   Ver logs: docker-compose logs -f" -ForegroundColor White
+    Write-Host "   Ver estado: docker-compose ps" -ForegroundColor White
+    Write-Host "   Reiniciar: docker-compose restart" -ForegroundColor White
+    Write-Host "   Detener: docker-compose down" -ForegroundColor White
+    Write-Host ""
+    Write-Host "⚠️  IMPORTANTE:" -ForegroundColor Red
+    Write-Host "   - Cambia las contraseñas por defecto" -ForegroundColor White
+    Write-Host "   - Configura SSL para producción" -ForegroundColor White
+    Write-Host "   - Configura un dominio real" -ForegroundColor White
+    Write-Host "   - Habilita backups automáticos" -ForegroundColor White
+    Write-Host ""
 }
 
-# Mostrar información final
-Write-Host "`n🎉 ¡Despliegue completado!" -ForegroundColor Green
-Write-Host "=======================" -ForegroundColor Green
+# Función principal
+function Main {
+    Write-Host "🚀 Script de Despliegue en Producción - AGRO APG" -ForegroundColor Cyan
+    Write-Host "================================================" -ForegroundColor Cyan
+    Write-Host ""
+    
+    # Verificar Docker
+    Test-Docker
+    
+    # Verificar archivo .env
+    Test-EnvFile
+    
+    # Detener contenedores existentes
+    Stop-Containers
+    
+    # Limpiar recursos
+    Clear-DockerResources
+    
+    # Construir y levantar
+    Start-Containers
+    
+    # Verificar contenedores
+    Test-Containers
+    
+    # Ejecutar migraciones
+    Invoke-Migrations
+    
+    # Recolectar archivos estáticos
+    Invoke-CollectStatic
+    
+    # Crear superusuario
+    New-SuperUser
+    
+    # Verificar configuración
+    Test-ProductionConfig
+    
+    # Mostrar información de acceso
+    Show-AccessInfo
+    
+    Write-Success "¡Despliegue completado exitosamente!"
+}
 
-Write-Host "`n🌐 URLs de acceso:" -ForegroundColor Cyan
-Write-Host "   Frontend: http://localhost:3000" -ForegroundColor White
-Write-Host "   Backend API: http://localhost:8000/api" -ForegroundColor White
-Write-Host "   Admin Django: http://localhost:8000/admin" -ForegroundColor White
-
-Write-Host "`n👤 Credenciales de admin:" -ForegroundColor Cyan
-Write-Host "   Usuario: admin@agroapg.com" -ForegroundColor White
-Write-Host "   Contraseña: admin123" -ForegroundColor White
-
-Write-Host "`n📊 Base de datos PostgreSQL:" -ForegroundColor Cyan
-Write-Host "   Host: localhost" -ForegroundColor White
-Write-Host "   Puerto: 5432" -ForegroundColor White
-Write-Host "   Base de datos: agro_db" -ForegroundColor White
-Write-Host "   Usuario: agro_user" -ForegroundColor White
-Write-Host "   Contraseña: $DbPassword" -ForegroundColor White
-
-Write-Host "`n🔧 Comandos útiles:" -ForegroundColor Cyan
-Write-Host "   Ver logs: docker-compose logs -f" -ForegroundColor White
-Write-Host "   Detener: docker-compose down" -ForegroundColor White
-Write-Host "   Reiniciar: docker-compose restart" -ForegroundColor White
-Write-Host "   Ver estado: docker-compose ps" -ForegroundColor White
-
-Write-Host "`n⚠️ IMPORTANTE: Cambia las credenciales por defecto en producción!" -ForegroundColor Yellow
-Write-Host "   Usa: docker-compose exec backend python manage.py shell" -ForegroundColor White
-
-Write-Host "`n✅ Despliegue exitoso!" -ForegroundColor Green
+# Ejecutar función principal
+Main
