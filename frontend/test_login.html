@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test API Sin Autenticación</title>
+</head>
+<body>
+    <h1>Test API Sin Autenticación</h1>
+    
+    <div id="result"></div>
+
+    <script>
+        async function testAPI() {
+            try {
+                // Probar API de calidad sin autenticación
+                const qualityResponse = await fetch('http://localhost:8000/api/quality-data/');
+                
+                if (qualityResponse.ok) {
+                    const qualityData = await qualityResponse.json();
+                    document.getElementById('result').innerHTML = `
+                        <h3>✅ API de calidad exitosa sin autenticación</h3>
+                        <p>Total registros: ${qualityData.count}</p>
+                        <p>Resultados: ${qualityData.results.length}</p>
+                        <p>Primer registro: ID ${qualityData.results[0]?.id}</p>
+                        <p>Empresa: ${qualityData.results[0]?.empresa}</p>
+                    `;
+                } else {
+                    document.getElementById('result').innerHTML = `
+                        <h3>❌ Error en API de calidad</h3>
+                        <p>Status: ${qualityResponse.status}</p>
+                    `;
+                }
+            } catch (error) {
+                document.getElementById('result').innerHTML = `
+                    <h3>❌ Error de conexión</h3>
+                    <p>${error.message}</p>
+                `;
+            }
+        }
+
+        // Ejecutar prueba automáticamente
+        testAPI();
+    </script>
+</body>
+</html>

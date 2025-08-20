@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test de Imágenes</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .test-container {
+            max-width: 800px;
+            margin: 0 auto;
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        .image-test {
+            margin: 20px 0;
+            padding: 15px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+        }
+        .image-test img {
+            max-width: 200px;
+            height: auto;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+        }
+        .status {
+            padding: 10px;
+            margin: 10px 0;
+            border-radius: 4px;
+        }
+        .success {
+            background-color: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+        .error {
+            background-color: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+    </style>
+</head>
+<body>
+    <div class="test-container">
+        <h1>🧪 Test de Carga de Imágenes</h1>
+        <p>Este archivo prueba que las imágenes se cargan correctamente desde la carpeta <code>public/</code></p>
+        
+        <div class="image-test">
+            <h3>1. Logo APG PACKING</h3>
+            <img src="/logo.png" alt="Logo APG PACKING" onload="this.parentElement.innerHTML += '<div class=\'status success\'>✅ Logo cargado correctamente</div>'" onerror="this.parentElement.innerHTML += '<div class=\'status error\'>❌ Error al cargar el logo</div>'">
+        </div>
+        
+        <div class="image-test">
+            <h3>2. Imagen de Fondo (Blueberry)</h3>
+            <img src="/blueberry_login.jpg" alt="Imagen de arándanos" onload="this.parentElement.innerHTML += '<div class=\'status success\'>✅ Imagen de fondo cargada correctamente</div>'" onerror="this.parentElement.innerHTML += '<div class=\'status error\'>❌ Error al cargar la imagen de fondo</div>'">
+        </div>
+        
+        <div class="image-test">
+            <h3>3. Test de CSS Background</h3>
+            <div style="width: 300px; height: 200px; background-image: url('/blueberry_login.jpg'); background-size: cover; background-position: center; border: 2px solid #333; border-radius: 8px;"></div>
+            <p>Si ves la imagen de arándanos arriba, el CSS background funciona correctamente.</p>
+        </div>
+        
+        <div class="status success">
+            <strong>✅ Instrucciones:</strong>
+            <ul>
+                <li>Si todas las imágenes se muestran correctamente, el problema está resuelto</li>
+                <li>Si hay errores, verifica que las imágenes estén en la carpeta <code>frontend/public/</code></li>
+                <li>Para probar en React, ejecuta <code>npm start</code> y ve a <code>http://localhost:3000/login</code></li>
+            </ul>
+        </div>
+    </div>
+</body>
+</html>
