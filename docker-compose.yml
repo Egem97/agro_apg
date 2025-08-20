@@ -18,8 +18,8 @@ services:
     environment:
       - DEBUG=False
       - DJANGO_SETTINGS_MODULE=agro_backend.settings
-      - ALLOWED_HOSTS=localhost,127.0.0.1,0.0.0.0
-      - CORS_ALLOWED_ORIGINS=http://localhost:3000,http://127.0.0.1:3000
+      - ALLOWED_HOSTS=34.136.15.241,localhost,127.0.0.1,0.0.0.0
+      - CORS_ALLOWED_ORIGINS=http://34.136.15.241:3000,http://localhost:3000
     networks:
       - agro_network
 
@@ -33,7 +33,7 @@ services:
     ports:
       - "3000:3000"
     environment:
-      - REACT_APP_API_URL=http://localhost:8000/api
+      - REACT_APP_API_URL=http://34.136.15.241:8000/api
       - NODE_ENV=production
     networks:
       - agro_network
