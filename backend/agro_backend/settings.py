@@ -73,12 +73,27 @@ TEMPLATES = [
 WSGI_APPLICATION = 'agro_backend.wsgi.application'
 
 # Database
-DATABASES = {
-    'default': {
-        'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': BASE_DIR / 'db.sqlite3',
+import os
+
+# Configuración de base de datos - PostgreSQL si las variables están disponibles, SQLite por defecto
+if os.getenv('POSTGRES_DB'):
+    DATABASES = {
+        'default': {
+            'ENGINE': 'django.db.backends.postgresql',
+            'NAME': os.getenv('POSTGRES_DB', 'agro_db'),
+            'USER': os.getenv('POSTGRES_USER', 'agro_user'),
+            'PASSWORD': os.getenv('POSTGRES_PASSWORD', 'agro_password_secure_2024'),
+            'HOST': os.getenv('POSTGRES_HOST', 'db'),
+            'PORT': os.getenv('POSTGRES_PORT', '5432'),
+        }
     }
-}
+else:
+    DATABASES = {
+        'default': {
+            'ENGINE': 'django.db.backends.sqlite3',
+            'NAME': BASE_DIR / 'db.sqlite3',
+        }
+    }
 
 # Password validation
 AUTH_PASSWORD_VALIDATORS = [

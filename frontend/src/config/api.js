@@ -1,15 +1,15 @@
 // Configuración de API para diferentes entornos
 const API_CONFIG = {
   development: {
-    baseURL: 'http://localhost:8000/api',
+    baseURL: process.env.REACT_APP_API_URL || 'http://localhost:8000/api',
     timeout: 10000,
   },
   production: {
-    baseURL: 'http://34.136.15.241:8001/api',
+    baseURL: process.env.REACT_APP_API_URL || 'http://34.136.15.241:8001/api',
     timeout: 15000,
   },
   test: {
-    baseURL: 'http://localhost:8000/api',
+    baseURL: process.env.REACT_APP_API_URL || 'http://localhost:8000/api',
     timeout: 5000,
   }
 };
