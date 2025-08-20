@@ -11,12 +11,12 @@ from datetime import timedelta
 BASE_DIR = Path(__file__).resolve().parent.parent
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = config('SECRET_KEY', default='django-insecure-your-secret-key-here-change-in-production')
+SECRET_KEY = os.getenv('SECRET_KEY', 'django-insecure-your-secret-key-here-change-in-production')
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = config('DEBUG', default=False, cast=bool)
+DEBUG = os.getenv('DEBUG', 'False').lower() == 'true'
 
-ALLOWED_HOSTS = config('ALLOWED_HOSTS', default='localhost,127.0.0.1').split(',')
+ALLOWED_HOSTS = os.getenv('ALLOWED_HOSTS', 'localhost,127.0.0.1').split(',')
 
 # Application definition
 DJANGO_APPS = [
@@ -37,6 +37,7 @@ THIRD_PARTY_APPS = [
 LOCAL_APPS = [
     'apps.authentication',
     'apps.production',
+    'apps.quality_data',
 ]
 
 INSTALLED_APPS = DJANGO_APPS + THIRD_PARTY_APPS + LOCAL_APPS
@@ -76,11 +77,11 @@ WSGI_APPLICATION = 'agro_backend.wsgi.application'
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.postgresql',
-        'NAME': config('POSTGRES_DB', default='agro_db'),
-        'USER': config('POSTGRES_USER', default='agro_user'),
-        'PASSWORD': config('POSTGRES_PASSWORD', default='agro_password_secure_2024'),
-        'HOST': config('POSTGRES_HOST', default='db'),
-        'PORT': config('POSTGRES_PORT', default='5432'),
+        'NAME': os.getenv('POSTGRES_DB', 'agro_db'),
+        'USER': os.getenv('POSTGRES_USER', 'agro_user'),
+        'PASSWORD': os.getenv('POSTGRES_PASSWORD', 'agro_password_secure_2024'),
+        'HOST': os.getenv('POSTGRES_HOST', 'db'),
+        'PORT': os.getenv('POSTGRES_PORT', '5432'),
     }
 }
 
@@ -157,7 +158,7 @@ SIMPLE_JWT = {
 }
 
 # CORS settings para producción
-CORS_ALLOWED_ORIGINS = config('CORS_ALLOWED_ORIGINS', default='https://your-domain.com,https://www.your-domain.com').split(',')
+CORS_ALLOWED_ORIGINS = os.getenv('CORS_ALLOWED_ORIGINS', 'https://your-domain.com,https://www.your-domain.com').split(',')
 
 CORS_ALLOW_CREDENTIALS = True
 

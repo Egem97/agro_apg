@@ -134,6 +134,15 @@ try {
     exit 1
 }
 
+# Ejecutar diagnóstico
+Write-Host "🔍 Ejecutando diagnóstico de configuración..." -ForegroundColor Yellow
+try {
+    docker-compose exec -T backend python /app/diagnose_production.py
+    Write-Host "   ✅ Diagnóstico completado" -ForegroundColor Green
+} catch {
+    Write-Host "   ⚠️ Diagnóstico falló, pero continuando..." -ForegroundColor Yellow
+}
+
 # Recolectar archivos estáticos
 Write-Host "📁 Recolectando archivos estáticos..." -ForegroundColor Yellow
 try {

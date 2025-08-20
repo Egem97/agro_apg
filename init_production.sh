@@ -33,6 +33,10 @@ fi
 echo "📦 Ejecutando migraciones..."
 docker-compose exec -T backend python manage.py migrate
 
+# Ejecutar diagnóstico
+echo "🔍 Ejecutando diagnóstico de configuración..."
+docker-compose exec -T backend python /app/diagnose_production.py
+
 # Recolectar archivos estáticos
 echo "📁 Recolectando archivos estáticos..."
 docker-compose exec -T backend python manage.py collectstatic --noinput
