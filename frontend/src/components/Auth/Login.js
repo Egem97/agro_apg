@@ -72,7 +72,7 @@ const Login = () => {
                   />
                </div>
                <div>
-                 <h1 className="text-3xl font-bold text-white">APG PACKING</h1>
+                                   <h1 className="text-3xl font-bold text-white">APG PACKING</h1>
                  <p className="text-gray-300">Sistema de Seguimiento</p>
                </div>
              </div>
@@ -227,7 +227,7 @@ const Login = () => {
                                            {/* Footer */}
             <div className="text-center pt-10 border-t border-gray-200">
               <p className="text-sm text-gray-500">
-                © 2025 APG PACKING. Sistema de seguimiento de producción agrícola.
+                                 © 2025 APG. Sistema de seguimiento de producción agrícola.
               </p>
             </div>
         </div>
