@@ -31,9 +31,9 @@ services:
       - "8000:8000"
     volumes:
       # Persistir archivos media
-      - ./backend/media:/app/media
-      # Persistir archivos estáticos
-      - ./backend/staticfiles:/app/staticfiles
+      - ./backend/media:/app/media:rw
+      # Montar staticfiles como volumen nombrado para evitar problemas de permisos
+      - staticfiles_data:/app/staticfiles
     environment:
       - DEBUG=False
       - DJANGO_SETTINGS_MODULE=agro_backend.settings_production
@@ -91,4 +91,5 @@ networks:
 volumes:
   postgres_data:
   media_data:
+  staticfiles_data:
   static_data:

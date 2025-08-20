@@ -5,12 +5,24 @@ echo "🚀 Iniciando AGRO APG Backend..."
 
 # Función para esperar a que la base de datos esté lista
 wait_for_db() {
-    echo "⏳ Verificando base de datos SQLite..."
-    if [ -f "/app/db.sqlite3" ]; then
-        echo "✅ Base de datos SQLite encontrada"
+    echo "⏳ Verificando base de datos..."
+    
+    # Verificar si estamos usando PostgreSQL
+    if [ "$DJANGO_SETTINGS_MODULE" = "agro_backend.settings_production" ] || [ -n "$POSTGRES_DB" ]; then
+        echo "🗄️ Verificando conexión a PostgreSQL..."
+        until python manage.py dbshell --database=default 2>&1 | grep -q "psql"; do
+            echo "⏳ Esperando a que PostgreSQL esté listo..."
+            sleep 2
+        done
+        echo "✅ PostgreSQL está listo"
     else
-        echo "📝 Creando nueva base de datos SQLite..."
-        python manage.py migrate
+        echo "📝 Verificando base de datos SQLite..."
+        if [ -f "/app/db.sqlite3" ]; then
+            echo "✅ Base de datos SQLite encontrada"
+        else
+            echo "📝 Creando nueva base de datos SQLite..."
+            python manage.py migrate
+        fi
     fi
 }
 
@@ -23,7 +35,24 @@ run_migrations() {
 # Función para recolectar archivos estáticos
 collect_static() {
     echo "📦 Recolectando archivos estáticos..."
-    python manage.py collectstatic --noinput
+    
+    # Asegurar que el directorio existe y tiene permisos correctos
+    mkdir -p /app/staticfiles
+    chmod -R 755 /app/staticfiles
+    
+    # Limpiar archivos estáticos existentes
+    rm -rf /app/staticfiles/*
+    
+    # Recolectar archivos estáticos
+    python manage.py collectstatic --noinput --clear --verbosity=2
+    
+    # Verificar que se recolectaron correctamente
+    if [ -d "/app/staticfiles/admin" ]; then
+        echo "✅ Archivos estáticos recolectados correctamente"
+        ls -la /app/staticfiles/
+    else
+        echo "⚠️ Advertencia: No se encontraron archivos estáticos de admin"
+    fi
 }
 
 # Función para crear superusuario si no existe

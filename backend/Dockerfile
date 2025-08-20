@@ -27,8 +27,9 @@ RUN pip install --no-cache-dir --upgrade pip \
 # Copiar el código del proyecto
 COPY . .
 
-# Crear directorios necesarios
-RUN mkdir -p /app/staticfiles /app/media /app/logs
+# Crear directorios necesarios y establecer permisos
+RUN mkdir -p /app/staticfiles /app/media /app/logs /app/static \
+    && chmod -R 755 /app/staticfiles /app/media /app/logs /app/static
 
 # Crear usuario no-root para seguridad
 RUN adduser --disabled-password --gecos '' appuser \
