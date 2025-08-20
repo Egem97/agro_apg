@@ -10,8 +10,11 @@ COPY package*.json ./
 # Instalar dependencias
 RUN npm ci
 
-# Copiar código fuente
+# Copiar todo el código fuente
 COPY . .
+
+# Verificar que los archivos estén presentes
+RUN ls -la && echo "=== PUBLIC DIR ===" && ls -la public/
 
 # Construir la aplicación
 RUN npm run build
