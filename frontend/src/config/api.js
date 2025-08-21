@@ -5,7 +5,7 @@ const API_CONFIG = {
     timeout: 10000,
   },
   production: {
-    baseURL: process.env.REACT_APP_API_URL || 'http://34.136.15.241:8001/api',
+    baseURL: process.env.REACT_APP_API_URL || 'http://34.136.15.241:8000/api',
     timeout: 15000,
   },
   test: {
