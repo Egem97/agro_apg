@@ -1,106 +1,188 @@
-#!/usr/bin/env python3
+#!/usr/bin/env python
 """
-Script de diagnóstico para verificar la conectividad del servidor AGRO APG
+Script de diagnóstico para el servidor de producción
 """
-import os
-import sys
 import requests
-import socket
-from urllib.parse import urlparse
+import subprocess
+import json
+import os
 
-def check_port(host, port):
-    """Verificar si un puerto está abierto"""
-    try:
-        sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        sock.settimeout(5)
-        result = sock.connect_ex((host, port))
-        sock.close()
-        return result == 0
-    except Exception as e:
-        print(f"❌ Error verificando puerto {port}: {e}")
-        return False
-
-def check_http_response(url):
-    """Verificar respuesta HTTP"""
-    try:
-        response = requests.get(url, timeout=10, allow_redirects=True)
-        return response.status_code, response.url
-    except requests.exceptions.RequestException as e:
-        return None, str(e)
-
-def main():
-    print("🔍 Diagnóstico de Conectividad - AGRO APG")
+def check_docker_containers():
+    """Verifica el estado de los contenedores Docker"""
+    print("🐳 VERIFICACIÓN DE CONTENEDORES DOCKER")
     print("=" * 50)
     
-    # Configuración
-    server_ip = "34.136.15.241"
-    ports_to_check = [8000, 3000, 5432]
-    
-    print(f"🌐 Verificando conectividad a {server_ip}")
-    print()
-    
-    # Verificar puertos
-    print("📋 Verificando puertos:")
-    for port in ports_to_check:
-        if check_port(server_ip, port):
-            print(f"   ✅ Puerto {port} está abierto")
+    try:
+        # Verificar contenedores corriendo
+        result = subprocess.run(['docker', 'ps'], capture_output=True, text=True)
+        if result.returncode == 0:
+            print("✅ Contenedores activos:")
+            print(result.stdout)
         else:
-            print(f"   ❌ Puerto {port} está cerrado")
+            print("❌ Error al verificar contenedores Docker")
+            print(result.stderr)
+            return False
+        
+        # Verificar todos los contenedores (incluyendo los detenidos)
+        result = subprocess.run(['docker', 'ps', '-a'], capture_output=True, text=True)
+        if result.returncode == 0:
+            print("\n📋 Todos los contenedores:")
+            print(result.stdout)
+        
+        return True
+        
+    except Exception as e:
+        print(f"❌ No se pudo verificar Docker: {e}")
+        return False
+
+def check_ports():
+    """Verifica qué puertos están en uso"""
+    print("\n🔌 VERIFICACIÓN DE PUERTOS")
+    print("=" * 50)
     
-    print()
+    ports_to_check = [80, 8080, 3000, 8000, 5432]
     
-    # Verificar URLs
-    print("🌐 Verificando URLs:")
+    for port in ports_to_check:
+        try:
+            result = subprocess.run(['netstat', '-tlnp'], capture_output=True, text=True)
+            if result.returncode == 0:
+                if str(port) in result.stdout:
+                    print(f"✅ Puerto {port} está en uso")
+                else:
+                    print(f"❌ Puerto {port} NO está en uso")
+        except Exception as e:
+            print(f"❌ Error verificando puerto {port}: {e}")
+
+def test_nginx_endpoints():
+    """Prueba los endpoints de Nginx"""
+    print("\n🌐 PRUEBA DE ENDPOINTS NGINX")
+    print("=" * 50)
     
-    # Backend
-    backend_url = f"http://{server_ip}:8000"
-    status_code, final_url = check_http_response(backend_url)
-    if status_code:
-        print(f"   ✅ Backend ({backend_url}): {status_code}")
-        if final_url != backend_url:
-            print(f"      → Redirigido a: {final_url}")
-    else:
-        print(f"   ❌ Backend ({backend_url}): {final_url}")
+    base_urls = [
+        "http://localhost:8080",
+        "http://127.0.0.1:8080",
+        "http://34.136.15.241:8080"
+    ]
     
-    # Admin
-    admin_url = f"http://{server_ip}:8000/admin"
-    status_code, final_url = check_http_response(admin_url)
-    if status_code:
-        print(f"   ✅ Admin ({admin_url}): {status_code}")
-        if final_url != admin_url:
-            print(f"      → Redirigido a: {final_url}")
-    else:
-        print(f"   ❌ Admin ({admin_url}): {final_url}")
+    endpoints = [
+        "/",
+        "/api/",
+        "/api/auth/login/",
+        "/admin/",
+        "/health"
+    ]
     
-    # API
-    api_url = f"http://{server_ip}:8000/api"
-    status_code, final_url = check_http_response(api_url)
-    if status_code:
-        print(f"   ✅ API ({api_url}): {status_code}")
-        if final_url != api_url:
-            print(f"      → Redirigido a: {final_url}")
-    else:
-        print(f"   ❌ API ({api_url}): {final_url}")
+    for base_url in base_urls:
+        print(f"\n📍 Probando: {base_url}")
+        print("-" * 40)
+        
+        for endpoint in endpoints:
+            url = base_url + endpoint
+            try:
+                response = requests.get(url, timeout=10)
+                print(f"✅ {endpoint} - Status: {response.status_code}")
+                if response.status_code == 502:
+                    print(f"   ⚠️  502 Bad Gateway - Nginx no puede conectar al backend")
+            except requests.exceptions.ConnectionError:
+                print(f"❌ {endpoint} - No se puede conectar")
+            except Exception as e:
+                print(f"❌ {endpoint} - Error: {e}")
+
+def test_direct_backend():
+    """Prueba el backend directamente"""
+    print("\n🔧 PRUEBA DIRECTA DEL BACKEND")
+    print("=" * 50)
     
-    # Frontend
-    frontend_url = f"http://{server_ip}:3000"
-    status_code, final_url = check_http_response(frontend_url)
-    if status_code:
-        print(f"   ✅ Frontend ({frontend_url}): {status_code}")
-        if final_url != frontend_url:
-            print(f"      → Redirigido a: {final_url}")
-    else:
-        print(f"   ❌ Frontend ({frontend_url}): {final_url}")
+    # Probar puerto 8000 directamente
+    try:
+        response = requests.get("http://localhost:8000/api/", timeout=5)
+        print(f"✅ Backend en puerto 8000 - Status: {response.status_code}")
+    except requests.exceptions.ConnectionError:
+        print("❌ Backend en puerto 8000 - No responde")
+    except Exception as e:
+        print(f"❌ Backend en puerto 8000 - Error: {e}")
     
-    print()
-    print("📊 Resumen de recomendaciones:")
-    print("1. ✅ Usar http:// no https://")
-    print("2. ✅ Verificar que ALLOWED_HOSTS incluya tu IP")
-    print("3. ✅ Verificar que el firewall permita los puertos")
-    print("4. ✅ Verificar que los contenedores estén corriendo")
+    # Probar puerto 3000 directamente (frontend)
+    try:
+        response = requests.get("http://localhost:3000/", timeout=5)
+        print(f"✅ Frontend en puerto 3000 - Status: {response.status_code}")
+    except requests.exceptions.ConnectionError:
+        print("❌ Frontend en puerto 3000 - No responde")
+    except Exception as e:
+        print(f"❌ Frontend en puerto 3000 - Error: {e}")
+
+def check_nginx_logs():
+    """Verifica los logs de Nginx"""
+    print("\n📋 LOGS DE NGINX")
+    print("=" * 50)
     
-    return True
+    try:
+        # Verificar logs de error de Nginx
+        result = subprocess.run(['docker', 'logs', 'agro_nginx', '--tail', '20'], 
+                              capture_output=True, text=True)
+        if result.returncode == 0:
+            print("📄 Últimos logs de Nginx:")
+            print(result.stdout)
+        else:
+            print("❌ No se pudieron obtener logs de Nginx")
+            print(result.stderr)
+    except Exception as e:
+        print(f"❌ Error obteniendo logs: {e}")
+
+def check_backend_logs():
+    """Verifica los logs del backend"""
+    print("\n📋 LOGS DEL BACKEND")
+    print("=" * 50)
+    
+    try:
+        result = subprocess.run(['docker', 'logs', 'agro_backend', '--tail', '20'], 
+                              capture_output=True, text=True)
+        if result.returncode == 0:
+            print("📄 Últimos logs del backend:")
+            print(result.stdout)
+        else:
+            print("❌ No se pudieron obtener logs del backend")
+            print(result.stderr)
+    except Exception as e:
+        print(f"❌ Error obteniendo logs: {e}")
+
+def main():
+    """Función principal de diagnóstico"""
+    print("🚀 DIAGNÓSTICO DEL SERVIDOR DE PRODUCCIÓN")
+    print("=" * 60)
+    
+    # Verificar si estamos en el servidor correcto
+    print(f"📍 IP del servidor: 34.136.15.241")
+    print(f"📍 Puerto Nginx: 8080")
+    print("-" * 40)
+    
+    # Ejecutar todas las verificaciones
+    check_docker_containers()
+    check_ports()
+    test_nginx_endpoints()
+    test_direct_backend()
+    check_nginx_logs()
+    check_backend_logs()
+    
+    print(f"\n📋 RECOMENDACIONES")
+    print("=" * 50)
+    print("1. Si los contenedores no están corriendo:")
+    print("   - Ejecuta: docker compose up -d")
+    print("   - Verifica: docker compose ps")
+    
+    print("\n2. Si hay error 502 Bad Gateway:")
+    print("   - El backend no está respondiendo")
+    print("   - Verifica logs: docker logs agro_backend")
+    print("   - Reinicia: docker compose restart backend")
+    
+    print("\n3. Si Nginx no responde:")
+    print("   - Verifica logs: docker logs agro_nginx")
+    print("   - Reinicia: docker compose restart nginx")
+    
+    print("\n4. Para acceder a la aplicación:")
+    print("   - Frontend: http://34.136.15.241:8080")
+    print("   - API: http://34.136.15.241:8080/api/")
+    print("   - Admin: http://34.136.15.241:8080/admin/")
 
 if __name__ == "__main__":
-    success = main()
-    sys.exit(0 if success else 1)
+    main()
